@@ -17,6 +17,16 @@ import os #for path accessing.
 
 from scipy.io import wavfile # for getting audio duration.
 
+
+
+from vosk import Model, KaldiRecognizer
+import sys
+import json #?
+import wave
+
+
+
+
 logging.basicConfig(filename = 'logs.log', level=logging.DEBUG, format=f'%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s')
 
 
@@ -77,7 +87,36 @@ def file_verify(file): # проверка деиствительности им�
         app.logger.error('|Error with file validating')
 
 
-def detection(filename):    # функция распознания речи принимает аргумент имя файла
+def Vosk_Kaldi_detection(filename):
+
+    detected_text=[]
+
+    if not os.path.exists("model"):
+        print ("Please download the model from https://alphacephei.com/vosk/models and unpack as 'model' in the current folder.")
+        exit (1)
+
+    wf = wave.open(filename, "rb")
+    if wf.getnchannels() != 1 or wf.getsampwidth() != 2 or wf.getcomptype() != "NONE":
+        print ("Audio file must be WAV format mono PCM.")
+        exit (1)
+
+    model = Model("model")
+
+    # You can also specify the possible word or phrase list as JSON list, the order doesn't have to be strict
+    rec = KaldiRecognizer(model, wf.getframerate(), '["oh one two three four five six seven eight nine zero", "[unk]"]')
+
+    while True:
+        data = wf.readframes(4000)
+        if len(data) == 0:
+            break
+        if rec.AcceptWaveform(data):
+            detected_text.append(rec.Result())
+
+    return detected_text
+
+
+
+def Sphinx_detection(filename):    # функция распознания речи принимает аргумент имя файла
 
     try:
 
@@ -95,6 +134,29 @@ def detection(filename):    # функция распознания речи п�
         app.logger.error('|Error with audio reognition.')
  
 
+def Vosk_detection(filename):
+    
+    model = Model("model")
+
+    # Large vocabulary free form recognition
+    rec = KaldiRecognizer(model, 16000)
+    
+    # You can also specify the possible word list
+    #rec = KaldiRecognizer(model, 16000, "zero oh one two three four five six seven eight nine")
+    
+    wf = open(filename, "rb")
+    
+    
+    while True:
+        data = wf.read(4000)
+        if len(data) == 0:
+            break
+        if rec.AcceptWaveform(data):
+            res = json.loads(rec.Result())
+            print (res['text'])
+
+    res = json.loads(rec.FinalResult())
+    return res
  
 
 @app.route('/', methods=['GET','POST'])   # соединаем наш адресс и  функцию деиствия с помошью методов.
@@ -142,7 +204,11 @@ def upload_file():  # функция запукает метод POST для п�
 
                 start_str =  time.strftime("%H:%M:%S", time.localtime()) # for log printing
 
-                recognition = detection(file.filename)
+                Sphinx_recognition = Sphinx_detection(file.filename)
+
+                Vosk_recognition = Vosk_detection(file.filename)
+
+                Vosk_Kaldi_recognition = Vosk_Kaldi_detection(file.filename)
               
                 finish_time =  time.time()  #for counting        
        
@@ -190,7 +256,10 @@ def upload_file():  # функция запукает метод POST для п�
 
                     "file_size (kb)" :file_size,
 
-                    "Detected_Text":recognition})
+                    "Sphinx Result":Sphinx_recognition,
+                    "Vosk Result":Vosk_recognition,
+                    "Vosk_Kaldi Result":Vosk_Kaldi_recognition
+                    })
 
  
 
