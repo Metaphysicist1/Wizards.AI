@@ -1,6 +1,6 @@
 sudo apt install git virtualenv
 
-git clone https://github.com/Metaphysicist1/application
+git clone https://github.com/Metaphysicist1/Wizards.AI.git
 
 function act(){
 	virtualenv .speech
